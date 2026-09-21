@@ -174,6 +174,19 @@
       white background.
     </p>
 
+    <p>
+      This algorithm is no worse than one that checks every sample inside
+      the triangle's bounding box. The loop bounds are the bounding box
+      rounded outward to whole pixels (floor of the minimum, ceiling of the
+      maximum) and then clamped to the framebuffer, so every pixel the
+      triangle can touch is visited and no sample outside the box is ever
+      tested. Within that range, each sample is tested exactly once with a
+      constant amount of work (three edge evaluations). The total cost is
+      therefore proportional to the number of pixels in the clamped box
+      times the sample rate. That is the cost of the bounding-box method
+      itself, and the clamping means it can only be smaller, never larger.
+    </p>
+
     <h3>Resolving the Samples</h3>
 
     <p>
@@ -224,6 +237,10 @@
     </p>
 
 	<h3>Testing our implementation</h3>
+
+	<p>
+		We used test4.svg to view different supersample rates.
+	</p>
 
     <div class="image-grid">
       <figure>
