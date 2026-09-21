@@ -1,112 +1,285 @@
-<html>
-	<head>
-		<script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=default'></script>
-		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-		<style>
-			h1 {
-				text-align: center;
-			}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CS184 Homework 1 Write-Up</title>
 
-			.container {
-				margin: 0 auto;
-				padding: 60px 20%;
-			}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=default"></script>
 
-			figure {
-				text-align: center;
-			}
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+    rel="stylesheet"
+  >
 
-			img {
-				display: inline-block;
-			}
+  <style>
+    body {
+      font-family: "Inter", sans-serif;
+      line-height: 1.6;
+      color: #222;
+      margin: 0;
+    }
 
-			body {
-				font-family: 'Inter', sans-serif;
-			}
-		</style>
-	</head>
-	<body>
-		<div class="container">
-		<h1>CS184/284A Fall 2026 Homework 1 Write-Up</h1>
-		<div style="text-align: center;">Names: Laura Nagamine, Nikko Adrian</div>
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
 
-		<br>
+    h1 {
+      text-align: center;
+      line-height: 1.25;
+    }
 
-		Link to webpage: <a href="https://cal-cs184-student.github.io/hw1-hw1-ln-writeup/">https://cal-cs184-student.github.io/hw1-hw1-ln-writeup/</a>
-		
-		<br>
+    h2 {
+      margin-top: 42px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #e5e5e5;
+    }
 
-		Link to GitHub repository: <a href="https://github.com/cal-cs184-student/hw1-hw1-ln">https://github.com/cal-cs184-student/hw1-hw1-ln</a>
+    h3 {
+      margin-top: 28px;
+    }
 
-		<figure>
-			<img src="assets/lion.jpg" alt="Lion" style="width:50%"/>
-			<figcaption>You can add images with captions!</figcaption>
-		</figure>
+    .metadata {
+      text-align: center;
+      color: #555;
+    }
 
-		<!--
-		We've already added one heading per task, to make your write-up as navigable when grading. Please fit your write-up within these sections!
-		-->
+    code {
+      padding: 2px 5px;
+      background: #f2f2f2;
+      border-radius: 3px;
+    }
 
-		<h2>Overview</h2>
-		Give a high-level overview of what you implemented in this homework. Think about what you've built as a whole. Share your thoughts on what interesting things you've learned from completing the homework.
+    .math-block {
+      overflow-x: auto;
+      padding: 12px 0;
+    }
 
-		<h2>Task 1: Drawing Single-Color Triangles</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+    .note {
+      padding: 12px 16px;
+      border-left: 4px solid #2d6a8a;
+      background: #f3f8fa;
+    }
 
-		<p>Here is an example 2x2 gridlike structure using an HTML table. Each <b>tr</b> is a row and each <b>td</b> is a column in that row. You might find this useful for framing and showing your result images in an organized fashion.</p>
-		<div style="display: flex; flex-direction: column; align-items: center;">
-			<table style="width: 100%; text-align: center; border-collapse: collapse;">
-			  <tr>
-				<td style="text-align: center;">
-				  <img src="assets/lion.jpg" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
-				</td>
-				<td style="text-align: center;">
-				  <img src="assets/lion.jpg" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
-				</td>
-			  </tr>
-			  <tr>
-				<td style="text-align: center;">
-				  <img src="assets/lion.jpg" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
-				</td>
-				<td style="text-align: center;">
-				  <img src="assets/lion.jpg" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
-				</td>
-			  </tr>
-			</table>
-		</div>
-		
-		<h2>Task 2: Antialiasing by Supersampling</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin: 20px 0;
+    }
 
-		<h2>Task 3: Transforms</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+    .image-grid figure {
+      margin: 0;
+    }
 
-		<h2>Task 4: Barycentric coordinates</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+    .image-grid img {
+      width: 100%;
+      display: block;
+      border: 1px solid #e5e5e5;
+      border-radius: 4px;
+    }
 
-		<h2>Task 5: "Pixel sampling" for texture mapping</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+    .image-grid figcaption {
+      margin-top: 6px;
+      text-align: center;
+      color: #555;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
 
-		<h2>Task 6: "Level Sampling" with mipmaps for texture mapping</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+<body>
+  <main class="container">
+    <h1>CS184/284A Fall 2026 Homework 1 Write-Up</h1>
 
-		<h2>(Optional) Task 7: Extra Credit - Draw Something Creative!</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+    <div class="metadata">
+      Names: Laura Nagamine, Nikko Adrian
+    </div>
 
-		<h2>Additional Notes (please remove)</h2>
-		<ul>
-			<li>You can also add code if you'd like as so: <code>code code code</code></li>
-			<li>If you'd like to add math equations, 
-				<ul>
-					<li>You can write inline equations like so: \( a^2 + b^2 = c^2 \)</li>
-					<li>You can write display equations like so: \[ a^2 + b^2 = c^2 \]</li>
-				</ul>
-			</li>
-		</ul>
-		</div>
-	</body>
+    <p class="metadata">
+      Link to webpage:
+      <a href="https://cal-cs184-student.github.io/hw1-hw1-ln-writeup/">
+        cal-cs184-student.github.io/hw1-hw1-ln-writeup/
+      </a>
+      <br>
+
+      Link to GitHub repository:
+      <a href="https://github.com/cal-cs184-student/hw1-hw1-ln">
+        github.com/cal-cs184-student/hw1-hw1-ln
+      </a>
+    </p>
+
+    <h2>Overview</h2>
+
+    <p>
+      In this homework, we implemented parts of a 2D vector graphics
+      rasterizer. For Task 2, we extended triangle rasterization with
+      supersampling to reduce aliasing along triangle boundaries.
+      Instead of deciding whether a triangle covers a pixel using only
+      one sample, the rasterizer stores several samples inside each pixel
+      and averages them when producing the final framebuffer.
+    </p>
+
+    <h2>Task 1: Drawing Single-Color Triangles</h2>
+
+    <p>
+      This section is reserved for the Task 1 description and results.
+    </p>
+
+    <h2>Task 2: Antialiasing by Supersampling</h2>
+
+    <h3>Implementation</h3>
+
+    <p>
+      The rasterizer maintains a sample buffer with
+      <code>width * height * sample_rate</code> color values. For every
+      triangle, we first compute its axis-aligned bounding box and clamp
+      that box to the framebuffer. This avoids testing pixels that cannot
+      be covered by the triangle.
+    </p>
+
+    <p>
+      For each pixel in the bounding box, the implementation places samples
+      on a regular square grid. For example, a sample rate of 4 uses a
+      2-by-2 grid, while a sample rate of 16 uses a 4-by-4 grid. Each sample
+      is located at the center of its subcell:
+    </p>
+
+    <div class="math-block">
+      \[
+      (x_s, y_s) =
+      \left(
+        x + \frac{i + 0.5}{n},
+        y + \frac{j + 0.5}{n}
+      \right),
+      \qquad
+      n = \sqrt{\mathtt{sample\_rate}}.
+      \]
+    </div>
+
+    <p>
+      To determine whether a sample is inside the triangle, we evaluate the
+      2D cross product for all three directed edges. A sample is covered when
+      all three edge tests have the same sign. Checking both the all-positive
+      and all-negative cases allows the test to work for either triangle
+      winding order.
+    </p>
+
+    <p>
+      Covered samples receive the triangle color, while uncovered samples
+      retain their previous value. Since the sample buffer is initialized to
+      white when the buffers are cleared, uncovered samples represent the
+      white background.
+    </p>
+
+    <h3>Resolving the Samples</h3>
+
+    <p>
+      After all SVG elements have been rasterized, the resolver computes the
+      average color of the samples belonging to each output pixel:
+    </p>
+
+    <div class="math-block">
+      \[
+      C_{\text{pixel}}
+      =
+      \frac{1}{N}
+      \sum_{k=1}^{N} C_k,
+      \qquad
+      N = \mathtt{sample\_rate}.
+      \]
+    </div>
+
+    <p>
+      The averaged red, green, and blue values are clamped to the range
+      \([0,1]\) and converted to 8-bit values before being written to the
+      target framebuffer. A boundary pixel therefore becomes a mixture of
+      the triangle color and the background instead of an abrupt one-color
+      transition.
+    </p>
+
+    <h3>Effect of the Sample Rate</h3>
+
+    <p>
+      At a sample rate of 1, each pixel has only one sample, so diagonal
+      edges appear jagged when the edge passes through a pixel. Increasing
+      the rate to 4 uses a 2-by-2 grid and gives a better estimate of the
+      triangle's coverage. A rate of 16 uses a 4-by-4 grid and generally
+      produces smoother edges.
+    </p>
+
+    <p>
+      The tradeoff is that higher sample rates require more edge tests, more
+      memory, and more rasterization time. The improvement eventually becomes
+      less noticeable because the result is still displayed at the original
+      framebuffer resolution.
+    </p>
+
+    <p class="note">
+      The current implementation assumes that the sample rates used for the
+      square grid are perfect squares, such as 1, 4, 9, or 16. This matches
+      the usual sample rates used for the assignment.
+    </p>
+
+	<h3>Testing our implementation</h3>
+
+    <div class="image-grid">
+      <figure>
+        <img src="images/test4_1.png" alt="Test 4 rendered at sample rate 1">
+        <figcaption>Sample rate 1</figcaption>
+      </figure>
+      <figure>
+        <img src="images/test4_4.png" alt="Test 4 rendered at sample rate 4">
+        <figcaption>Sample rate 4</figcaption>
+      </figure>
+      <figure>
+        <img src="images/test4_9.png" alt="Test 4 rendered at sample rate 9">
+        <figcaption>Sample rate 9</figcaption>
+      </figure>
+      <figure>
+        <img src="images/test4_16.png" alt="Test 4 rendered at sample rate 16">
+        <figcaption>Sample rate 16</figcaption>
+      </figure>
+    </div>
+
+    <p>
+      As the sample rate increases from 1 to 16, the jagged, stair-stepped
+      edges seen at a sample rate of 1 are progressively smoothed out. By a
+      sample rate of 16, edges blend gradually into the background instead of
+      transitioning abruptly, confirming that supersampling reduces aliasing.
+    </p>
+
+    <h2>Task 3: Transforms</h2>
+
+    <p>
+      This section is reserved for the Task 3 description and results.
+    </p>
+
+    <h2>Task 4: Barycentric Coordinates</h2>
+
+    <p>
+      This section is reserved for the Task 4 description and results.
+    </p>
+
+    <h2>Task 5: Pixel Sampling for Texture Mapping</h2>
+
+    <p>
+      This section is reserved for the Task 5 description and results.
+    </p>
+
+    <h2>Task 6: Level Sampling with Mipmaps</h2>
+
+    <p>
+      This section is reserved for the Task 6 description and results.
+    </p>
+
+    <h2>Task 7: Extra Credit</h2>
+
+    <p>
+      This section is reserved for the optional extra-credit description.
+    </p>
+  </main>
+</body>
 </html>
