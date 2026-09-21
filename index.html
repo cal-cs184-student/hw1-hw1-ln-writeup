@@ -130,7 +130,7 @@
 
     <h2>Task 2: Antialiasing by Supersampling</h2>
 
-    <h3>Implementation</h3>
+    <h3>Walkthrough of Our Triangle Rasterization</h3>
 
     <p>
       The rasterizer maintains a sample buffer with
@@ -173,6 +173,8 @@
       white when the buffers are cleared, uncovered samples represent the
       white background.
     </p>
+
+    <h3>Why This Is No Worse Than Checking Every Sample in the Bounding Box</h3>
 
     <p>
       This algorithm is no worse than one that checks every sample inside
