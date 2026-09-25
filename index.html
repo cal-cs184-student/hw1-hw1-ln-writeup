@@ -124,8 +124,255 @@
 
     <h2>Task 1: Drawing Single-Color Triangles</h2>
 
+    <h3>Walkthrough of Our Triangle Rasterization</h3>
+
     <p>
-      This section is reserved for the Task 1 description and results.
+      Rasterizing a triangle means deciding which pixels of the framebuffer it
+      covers. We do this in two stages: first narrow the search down to the
+      pixels that could possibly be covered, then run a coverage test on each
+      of those candidates.
+    </p>
+
+    <h4>1. Bounding box</h4>
+
+    <p>
+      Testing every pixel in the framebuffer would be wasteful, since a
+      triangle usually occupies a small part of the screen. Instead we take
+      the minimum and maximum \(x\) and \(y\) over the three vertices and
+      round them outward to whole pixels:
+    </p>
+
+    <div class="math-block">
+      \[
+      \begin{aligned}
+        x_{\min} &= \lfloor \min(x_0,x_1,x_2) \rfloor, &
+        x_{\max} &= \lceil \max(x_0,x_1,x_2) \rceil, \\
+        y_{\min} &= \lfloor \min(y_0,y_1,y_2) \rfloor, &
+        y_{\max} &= \lceil \max(y_0,y_1,y_2) \rceil.
+      \end{aligned}
+      \]
+    </div>
+
+    <p>
+      Rounding outward matters because vertices land at arbitrary
+      floating-point positions. Taking the floor of the minimum and the
+      ceiling of the maximum guarantees that the integer box still fully
+      contains the triangle, so we can never clip off a sliver of it. We then
+      iterate over the half-open ranges \(x \in [x_{\min}, x_{\max})\) and
+      \(y \in [y_{\min}, y_{\max})\). The ranges are half-open because pixel
+      \((x,y)\) owns the unit square \([x, x{+}1) \times [y, y{+}1)\), so the
+      last pixel that can overlap the triangle has index
+      \(\lceil \max \rceil - 1\).
+    </p>
+
+    <h4>2. Sample position</h4>
+
+    <p>
+      For each candidate pixel we test a single sample at the center of the
+      pixel rather than at its corner:
+    </p>
+
+    <div class="math-block">
+      \[ (p_x, p_y) = (x + 0.5,\; y + 0.5). \]
+    </div>
+
+    <p>
+      Sampling at the center means a pixel is filled when the triangle covers
+      the middle of it, which is a better estimate of coverage than testing a
+      corner shared between four neighboring pixels.
+    </p>
+
+    <h4>3. The edge function</h4>
+
+    <p>
+      To decide whether the sample is inside the triangle we use a helper that
+      evaluates, for a directed edge running from \(A\) to \(B\) and a query
+      point \(P\), the quantity
+    </p>
+
+    <div class="math-block">
+      \[
+      E_{A \to B}(P) = (B_x - A_x)(P_y - A_y) - (B_y - A_y)(P_x - A_x).
+      \]
+    </div>
+
+    <p>
+      This is the \(z\)-component of the 2D cross product
+      \((B - A) \times (P - A)\). What makes it useful is its
+      <em>sign</em>: it is positive when \(P\) lies on one side of the
+      infinite line through \(A\) and \(B\), negative when it lies on the
+      other, and exactly zero when \(P\) lies on the line itself. Its
+      magnitude is twice the area of triangle \(ABP\), a fact we come back to
+      in Task 4.
+    </p>
+
+    <h4>4. Point-in-triangle test</h4>
+
+    <p>
+      We evaluate the edge function for the three directed edges
+      \(v_0 \to v_1\), \(v_1 \to v_2\), and \(v_2 \to v_0\). Because these
+      three edges traverse the boundary consistently in one rotational
+      direction, a point inside the triangle lies on the same side of all
+      three lines, which means all three edge values share a sign. A point
+      outside the triangle is on the wrong side of at least one edge, so at
+      least one value disagrees.
+    </p>
+
+    <p>
+      Rather than requiring the values to be positive, we accept a sample when
+      all three are non-negative <em>or</em> all three are non-positive:
+    </p>
+
+    <div class="math-block">
+      \[
+      \text{inside} \;=\;
+      (e_0 \ge 0 \wedge e_1 \ge 0 \wedge e_2 \ge 0)
+      \;\vee\;
+      (e_0 \le 0 \wedge e_1 \le 0 \wedge e_2 \le 0).
+      \]
+    </div>
+
+    <p>
+      This handles <strong>winding order</strong> for free. A
+      counter-clockwise triangle produces all-positive values for interior
+      points, while a clockwise triangle produces all-negative ones. Checking
+      both cases means we never have to detect the winding or reorder the
+      vertices, which is why <code>basic/test6.svg</code> renders correctly
+      whichever order its vertices are given in.
+    </p>
+
+    <p>
+      Using the non-strict comparisons \(\ge\) and \(\le\) rather than strict
+      ones also means that \(e_i = 0\) counts as covered, so a sample landing
+      exactly on an edge is drawn. This satisfies the requirement that
+      boundary samples be filled and guarantees that no edge of the triangle
+      is left un-rasterized.
+    </p>
+
+
+    <h4>5. Filling</h4>
+
+    <p>
+      When the test passes we call <code>fill_pixel(x, y, color)</code>, which
+      writes the triangle's color into the buffer at index
+      <code>y * width + x</code>. Samples that fail the test are left alone
+      and keep the white background they were cleared to.
+    </p>
+
+    <h3>Why This Is No Worse Than Checking Every Sample in the Bounding Box</h3>
+
+    <p>
+      The baseline to beat is: compute the smallest rectangle that contains
+      the entire triangle, then test every sample inside it. Our algorithm
+      <em>is</em> that algorithm, so its cost is the same rather than larger.
+      Concretely, three properties hold.
+    </p>
+
+    <p>
+      <strong>We never test a sample outside the bounding box.</strong> The
+      loop bounds are derived only from the vertex extrema, and
+      \([\lfloor \min \rfloor, \lceil \max \rceil)\) is the smallest
+      half-open integer interval containing \([\min, \max]\). The set of
+      pixels we visit is therefore exactly the set whose unit squares
+      intersect the triangle's real-valued bounding box, with no padding
+      beyond the rounding that correctness requires.
+    </p>
+
+    <p>
+      <strong>We never test a sample twice.</strong> The two nested loops run
+      over distinct integer coordinates, and at one sample per pixel each
+      candidate is evaluated exactly once.
+    </p>
+
+    <p>
+      <strong>The work per sample is constant.</strong> Each sample costs
+      three edge-function evaluations, each of which is two multiplications
+      and five subtractions, followed by at most six short-circuited
+      comparisons. There is no allocation, no per-sample setup, and no work
+      that grows with the size of the triangle.
+    </p>
+
+    <p>
+      Multiplying these together, the total cost is proportional to the area
+      of the bounding box in pixels, which is precisely the cost of the
+      baseline. It can never exceed it.
+    </p>
+
+    <p>
+      The comparison worth making is against the naive alternative of testing
+      every pixel in the framebuffer, which costs
+      \(\Theta(\text{width} \times \text{height})\) per triangle no matter how
+      small the triangle is. At the 1600&times;1200 resolution used for
+      <code>test4.svg</code>, a triangle covering a few hundred pixels would
+      still trigger nearly two million coverage tests. Restricting the loops
+      to the bounding box makes the per-triangle cost proportional to the
+      triangle's own screen footprint instead of the screen's size.
+    </p>
+
+    <p class="note">
+      To be precise about the claim: we did not do anything to be
+      <em>faster</em> than the bounding-box approach. There is no incremental
+      update of the edge functions along a scanline, no per-scanline span
+      clipping, and no block-level early rejection. The claim is that our cost
+      equals the bounding-box cost, not that it improves on it.
+    </p>
+
+    <h3>Results</h3>
+
+    <p>
+      With the rasterizer in place, the four single-color test files render
+      correctly. All four are shown at 800&times;600 with the default viewing
+      parameters and one sample per pixel.
+    </p>
+
+    <div class="image-grid">
+      <figure>
+        <img src="images/test1_1.png" alt="basic/test3.svg rendered as a black dragon silhouette">
+        <figcaption><code>basic/test3.svg</code></figcaption>
+      </figure>
+      <figure>
+        <img src="images/test1_2.png" alt="basic/test4.svg rendered with four triangles of varying thinness">
+        <figcaption><code>basic/test4.svg</code></figcaption>
+      </figure>
+      <figure>
+        <img src="images/test1_3.png" alt="basic/test5.svg rendered as a green cube">
+        <figcaption><code>basic/test5.svg</code></figcaption>
+      </figure>
+      <figure>
+        <img src="images/test1_4.png" alt="basic/test6.svg rendered as blue stars and orange hexagons">
+        <figcaption><code>basic/test6.svg</code></figcaption>
+      </figure>
+    </div>
+
+    <h3>Pixel Inspector: basic/test4.svg</h3>
+
+    <div class="image-grid" style="grid-template-columns: 1fr;">
+      <figure>
+        <img src="images/pixel-inspector-4.png"
+             alt="test4.svg at default viewing parameters with the pixel inspector magnifying the thin magenta triangle">
+        <figcaption><code>basic/test4.svg</code> with the pixel inspector</figcaption>
+      </figure>
+    </div>
+
+    <p>
+      The inspector is centered on the thin magenta triangle along the right
+      side of the scene, which is the most revealing part of this file. Because
+      we take a single sample per pixel, every pixel in the magnified view is
+      either fully magenta or fully white, with no intermediate shades. The
+      sliver is only about one pixel wide, so instead of a continuous line it
+      renders as short vertical runs of pixels that jump sideways by a whole
+      pixel at a time, and it breaks apart entirely in the stretches where the
+      triangle is narrow enough to pass between pixel centers without covering
+      any of them.
+    </p>
+
+    <p>
+      This is the aliasing that the supersampling in Task 2 addresses. The
+      coverage test itself is correct here: every pixel whose center falls
+      inside the triangle is filled, and every pixel whose center falls outside
+      is not. The problem is that one sample per pixel is too coarse to
+      represent a shape thinner than a pixel, so the information is lost before
+      it ever reaches the framebuffer.
     </p>
 
     <h2>Task 2: Antialiasing by Supersampling</h2>
