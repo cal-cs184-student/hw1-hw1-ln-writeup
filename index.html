@@ -285,7 +285,132 @@
     <h2>Task 5: Pixel Sampling for Texture Mapping</h2>
 
     <p>
-      This section is reserved for the Task 5 description and results.
+      Texture mapping assigns each triangle vertex a UV coordinate in
+      \([0,1]^2\) that points into a texture image. When the rasterizer
+      shades a covered sample, it interpolates the UV coordinate across the
+      triangle using barycentric weights, but that interpolated coordinate
+      almost never lands exactly on a texel center. Pixel sampling is the
+      problem of turning that continuous UV coordinate into a single color,
+      by choosing which texel (or combination of texels) to read.
+    </p>
+
+    <h3>Implementation Overview</h3>
+
+    <p>
+      <code>rasterize_textured_triangle</code> reuses the bounding-box and
+      supersampling-grid structure from Tasks 2 and 4: for every sample
+      inside the clamped bounding box, we compute barycentric coordinates
+      \((w_0, w_1, w_2)\) with respect to the triangle's three vertices
+      (computed in double precision, since single-precision edge tests were
+      occasionally off by a pixel at triangle boundaries). Covered samples
+      interpolate the vertex UVs the same way Task 4 interpolates vertex
+      colors:
+    </p>
+
+    <div class="math-block">
+      \[
+      \mathrm{uv} = w_0\, \mathrm{uv}_0 + w_1\, \mathrm{uv}_1 + w_2\, \mathrm{uv}_2
+      \]
+    </div>
+
+    <p>
+      That UV, together with the current pixel-sampling method (toggled with
+      the <code>'P'</code> hotkey), is packed into a <code>SampleParams</code>
+      struct and passed to <code>Texture::sample</code>, which dispatches to
+      either <code>sample_nearest</code> or <code>sample_bilinear</code>.
+    </p>
+
+    <p class="note">
+      At this stage we always sample from mip level 0 (the full-resolution
+      image). Selecting a mip level based on the screen-space footprint of
+      the texture lookup is implemented in Task 6.
+    </p>
+
+    <h3>Nearest-Neighbor Sampling</h3>
+
+    <p>
+      <code>sample_nearest</code> maps the continuous UV coordinate directly
+      onto a texel index, rounding to the closest one:
+    </p>
+
+    <div class="math-block">
+      \[
+      t_x = \mathrm{round}\big(u \cdot (\mathrm{width}-1)\big), \qquad
+      t_y = \mathrm{round}\big(v \cdot (\mathrm{height}-1)\big)
+      \]
+    </div>
+
+    <p>
+      so that \(u=0\) lands exactly on the first texel and \(u=1\) lands
+      exactly on the last one. The index is clamped to the valid range and
+      that single texel's color is returned unchanged. This makes nearest
+      sampling fast, but it produces a piecewise-constant color across each
+      texel's footprint, which looks blocky whenever the texture is
+      magnified.
+    </p>
+
+    <h3>Bilinear Sampling</h3>
+
+    <p>
+      <code>sample_bilinear</code> uses the same continuous coordinate
+      \(x = u\cdot(\mathrm{width}-1)\), \(y = v\cdot(\mathrm{height}-1)\), but
+      instead of rounding, it takes the four texels surrounding that point
+      and blends them by their distance to it:
+    </p>
+
+    <div class="math-block">
+      \[
+      C = (1-t)\big[(1-s)\,C_{00} + s\,C_{10}\big] +
+          t\big[(1-s)\,C_{01} + s\,C_{11}\big]
+      \]
+    </div>
+
+    <p>
+      where \(s\) and \(t\) are the fractional parts of \(x\) and \(y\).
+      This costs four texture reads instead of one, but produces a smooth
+      gradient across texel boundaries instead of a hard edge.
+    </p>
+
+    <h3>Comparison: Nearest vs. Bilinear</h3>
+
+    <p>
+      We used the pixel inspector on <code>svg/texmap/test2.svg</code> and
+      zoomed into the map's latitude/longitude grid lines, where the texture
+      is magnified enough that individual texels are clearly visible.
+    </p>
+
+    <div class="image-grid">
+      <figure>
+        <img src="images/texmap_nearest_1.png" alt="Nearest sampling, 1 sample per pixel">
+        <figcaption>Nearest, 1 sample/pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/texmap_nearest_16.png" alt="Nearest sampling, 16 samples per pixel">
+        <figcaption>Nearest, 16 samples/pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/texmap_bilinear_1.png" alt="Bilinear sampling, 1 sample per pixel">
+        <figcaption>Bilinear, 1 sample/pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/texmap_bilinear_16.png" alt="Bilinear sampling, 16 samples per pixel">
+        <figcaption>Bilinear, 16 samples/pixel</figcaption>
+      </figure>
+    </div>
+
+    <p>
+      The difference between nearest and bilinear is largest wherever the
+      texture is magnified — where a single triangle covers many screen
+      pixels but only a small range of UV space, such as the grid lines
+      above. There, nearest sampling repeats the same texel across a block
+      of pixels, producing hard, blocky edges, while bilinear blends
+      neighboring texels into a smooth gradient. Increasing the sample rate
+      from 1 to 16 barely changes this gap, because supersampling only
+      affects how triangle *coverage* is estimated at silhouette edges, it
+      does not change how a single texture lookup is filtered. Where the
+      texture is not magnified (roughly one texel per pixel or smaller), the
+      two methods look nearly identical, since there is little room for a
+      texel-sized block to be visible either way.
     </p>
 
     <h2>Task 6: Level Sampling with Mipmaps</h2>
