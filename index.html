@@ -374,148 +374,210 @@
       represent a shape thinner than a pixel, so the information is lost before
       it ever reaches the framebuffer.
     </p>
+<h2>Task 2: Antialiasing by Supersampling</h2>
 
-    <h2>Task 2: Antialiasing by Supersampling</h2>
+<h3>Algorithm and Data Structures</h3>
 
-    <h3>Walkthrough of Our Triangle Rasterization</h3>
+<p>
+  Supersampling is implemented with a single new data structure: a
+  <code>sample_buffer</code>, a flat <code>std::vector&lt;Color&gt;</code> of
+  size <code>width * height * sample_rate</code>. Instead of one color per
+  pixel, each pixel owns a contiguous block of <code>sample_rate</code>
+  color slots, found at offset <code>(y * width + x) * sample_rate</code>.
+  This lets the rasterizer store a separate color for every subsample of a
+  pixel and combine them later, rather than picking a single in/out answer
+  per pixel.
+</p>
 
-    <p>
-      The rasterizer maintains a sample buffer with
-      <code>width * height * sample_rate</code> color values. For every
-      triangle, we first compute its axis-aligned bounding box and clamp
-      that box to the framebuffer. This avoids testing pixels that cannot
-      be covered by the triangle.
-    </p>
+<p>
+  For every triangle, <code>rasterize_triangle</code> first computes an
+  axis-aligned bounding box from the three vertices and clamps it to the
+  framebuffer, so only pixels the triangle can possibly touch are visited.
+  Within that box, each pixel is subdivided into an <code>n x n</code> grid
+  of subsamples, where <code>n = sqrt(sample_rate)</code> (a rate of 4 gives
+  a 2x2 grid, 16 gives a 4x4 grid). Each subsample sits at the center of its
+  cell:
+</p>
 
-    <p>
-      For each pixel in the bounding box, the implementation places samples
-      on a regular square grid. For example, a sample rate of 4 uses a
-      2-by-2 grid, while a sample rate of 16 uses a 4-by-4 grid. Each sample
-      is located at the center of its subcell:
-    </p>
+<div class="math-block">
+  \[
+  (x_s, y_s) =
+  \left(
+    x + \frac{i + 0.5}{n},
+    y + \frac{j + 0.5}{n}
+  \right),
+  \qquad
+  n = \sqrt{\mathtt{sample\_rate}}.
+  \]
+</div>
 
-    <div class="math-block">
-      \[
-      (x_s, y_s) =
-      \left(
-        x + \frac{i + 0.5}{n},
-        y + \frac{j + 0.5}{n}
-      \right),
-      \qquad
-      n = \sqrt{\mathtt{sample\_rate}}.
-      \]
-    </div>
+<p>
+  Each subsample is tested against the triangle independently using the same
+  edge-function test as Task 1: the 2D cross product is evaluated for all
+  three directed edges, and the subsample is covered when all three edge
+  values share the same sign (checking both all-positive and all-negative
+  handles either winding order). A covered subsample gets the triangle's
+  color written into its slot in <code>sample_buffer</code>; an uncovered
+  subsample keeps whatever was there before (the white background, since
+  <code>clear_buffers</code> fills the whole sample buffer with
+  <code>Color::White</code>).
+</p>
 
-    <p>
-      To determine whether a sample is inside the triangle, we evaluate the
-      2D cross product for all three directed edges. A sample is covered when
-      all three edge tests have the same sign. Checking both the all-positive
-      and all-negative cases allows the test to work for either triangle
-      winding order.
-    </p>
+<h3>Why Supersampling Is Useful</h3>
 
-    <p>
-      Covered samples receive the triangle color, while uncovered samples
-      retain their previous value. Since the sample buffer is initialized to
-      white when the buffers are cleared, uncovered samples represent the
-      white background.
-    </p>
+<p>
+  Testing a triangle against one point per pixel forces a binary decision:
+  the pixel is either fully the triangle's color or fully the background.
+  Along a diagonal or curved edge, this produces a hard staircase pattern
+  because pixels straddling the edge are rounded to one side or the other.
+  Supersampling replaces that single point test with several point tests
+  spread across the pixel, so a pixel that is only partially covered by the
+  triangle ends up with some subsamples inside and some outside. Averaging
+  those subsamples produces a color that is a blend of the triangle and the
+  background, proportional to how much of the pixel the triangle actually
+  covers. This is what removes the jagged, stair-stepped edges that appear
+  at a sample rate of 1.
+</p>
 
-    <h3>Why This Is No Worse Than Checking Every Sample in the Bounding Box</h3>
+<h3>Modifications to the Rasterization Pipeline</h3>
 
-    <p>
-      This algorithm is no worse than one that checks every sample inside
-      the triangle's bounding box. The loop bounds are the bounding box
-      rounded outward to whole pixels (floor of the minimum, ceiling of the
-      maximum) and then clamped to the framebuffer, so every pixel the
-      triangle can touch is visited and no sample outside the box is ever
-      tested. Within that range, each sample is tested exactly once with a
-      constant amount of work (three edge evaluations). The total cost is
-      therefore proportional to the number of pixels in the clamped box
-      times the sample rate. That is the cost of the bounding-box method
-      itself, and the clamping means it can only be smaller, never larger.
-    </p>
+<p>
+  Starting from the Task 1 single-sample rasterizer, four places needed to
+  change to support supersampling:
+</p>
 
-    <h3>Resolving the Samples</h3>
+<ul>
+  <li>
+    <b>Buffer sizing.</b> <code>RasterizerImp</code>'s constructor,
+    <code>set_sample_rate</code>, and <code>set_framebuffer_target</code>
+    all size (or resize) <code>sample_buffer</code> to
+    <code>width * height * sample_rate</code>, since the number of stored
+    samples now scales with the sample rate rather than just the pixel
+    count. Changing the sample rate at runtime (the <code>=</code>/<code>-</code>
+    keys) reallocates this buffer.
+  </li>
+  <li>
+    <b>Triangle coverage testing.</b> <code>rasterize_triangle</code> was
+    changed from testing one point per pixel to looping over an
+    <code>n x n</code> grid of subsample positions per pixel and running the
+    edge test on each one independently, writing results into the
+    per-pixel block of <code>sample_buffer</code> described above.
+  </li>
+  <li>
+    <b><code>fill_pixel</code>.</b> Used by point and line rasterization,
+    this was updated to write the same color into every subsample slot for
+    a pixel, so points and lines stay fully opaque and axis-aligned rather
+    than fading out as the sample rate increases.
+  </li>
+  <li>
+    <b><code>resolve_to_framebuffer</code>.</b> This function now runs once
+    after all SVG elements are rasterized, and for every pixel it averages
+    that pixel's <code>sample_rate</code> stored samples into a single
+    color before writing it to the 8-bit RGB framebuffer, instead of
+    copying a single stored value straight across.
+  </li>
+</ul>
 
-    <p>
-      After all SVG elements have been rasterized, the resolver computes the
-      average color of the samples belonging to each output pixel:
-    </p>
+<h3>Using Supersampling to Antialias Triangles</h3>
 
-    <div class="math-block">
-      \[
-      C_{\text{pixel}}
-      =
-      \frac{1}{N}
-      \sum_{k=1}^{N} C_k,
-      \qquad
-      N = \mathtt{sample\_rate}.
-      \]
-    </div>
+<p>
+  Putting the pieces together: for each triangle, every pixel in its
+  bounding box is tested at <code>sample_rate</code> sub-pixel positions
+  instead of one. Pixels fully inside the triangle end up with all
+  subsamples set to the triangle color; pixels fully outside keep the
+  background in every subsample; pixels straddling an edge end up with a
+  mix. Once every triangle (and other SVG element) has been rasterized,
+  <code>resolve_to_framebuffer</code> averages each pixel's samples:
+</p>
 
-    <p>
-      The averaged red, green, and blue values are clamped to the range
-      \([0,1]\) and converted to 8-bit values before being written to the
-      target framebuffer. A boundary pixel therefore becomes a mixture of
-      the triangle color and the background instead of an abrupt one-color
-      transition.
-    </p>
+<div class="math-block">
+  \[
+  C_{\text{pixel}}
+  =
+  \frac{1}{N}
+  \sum_{k=1}^{N} C_k,
+  \qquad
+  N = \mathtt{sample\_rate}.
+  \]
+</div>
 
-    <h3>Effect of the Sample Rate</h3>
+<p>
+  The averaged red, green, and blue values are clamped to <code>[0,1]</code>
+  and converted to 8-bit values before being written to the target
+  framebuffer. A boundary pixel therefore becomes a proportional mixture of
+  the triangle color and the background — closer to the triangle color the
+  more subsamples it covers — instead of the abrupt one-or-the-other
+  transition Task 1 produced. Increasing the sample rate increases
+  <code>n</code>, giving a finer-grained coverage estimate at the cost of
+  more edge tests, more memory, and slower rasterization, with
+  diminishing visual returns once the result is displayed back at the
+  original framebuffer resolution.
+</p>
 
-    <p>
-      At a sample rate of 1, each pixel has only one sample, so diagonal
-      edges appear jagged when the edge passes through a pixel. Increasing
-      the rate to 4 uses a 2-by-2 grid and gives a better estimate of the
-      triangle's coverage. A rate of 16 uses a 4-by-4 grid and generally
-      produces smoother edges.
-    </p>
+<p class="note">
+  The current implementation assumes sample rates are perfect squares (1,
+  4, 9, 16), matching the rates exposed by the viewer's <code>=</code>/<code>-</code>
+  keys.
+</p>
 
-    <p>
-      The tradeoff is that higher sample rates require more edge tests, more
-      memory, and more rasterization time. The improvement eventually becomes
-      less noticeable because the result is still displayed at the original
-      framebuffer resolution.
-    </p>
+<h3>Testing Our Implementation</h3>
 
-    <p class="note">
-      The current implementation assumes that the sample rates used for the
-      square grid are perfect squares, such as 1, 4, 9, or 16. This matches
-      the usual sample rates used for the assignment.
-    </p>
+<p>
+  We used test4.svg to view different supersample rates.
+</p>
 
-	<h3>Testing our implementation</h3>
+<div class="image-grid">
+  <figure>
+    <img src="images/task_2/task2_1.png" alt="Test 4 rendered at sample rate 1">
+    <figcaption>Sample rate 1</figcaption>
+  </figure>
+  <figure>
+    <img src="images/task_2/task2_4.png" alt="Test 4 rendered at sample rate 4">
+    <figcaption>Sample rate 4</figcaption>
+  </figure>
+  <figure>
+    <img src="images/task_2/task2_9.png" alt="Test 4 rendered at sample rate 9">
+    <figcaption>Sample rate 9</figcaption>
+  </figure>
+  <figure>
+    <img src="images/task_2/task2_16.png" alt="Test 4 rendered at sample rate 16">
+    <figcaption>Sample rate 16</figcaption>
+  </figure>
+</div>
 
-	<p>
-		We used test4.svg to view different supersample rates.
-	</p>
+<p>
+  As the sample rate increases from 1 to 16, the jagged, stair-stepped
+  edges seen at a sample rate of 1 are progressively smoothed out. By a
+  sample rate of 16, edges blend gradually into the background instead of
+  transitioning abruptly, confirming that supersampling reduces aliasing.
+</p>
 
-    <div class="image-grid">
-      <figure>
-        <img src="images/test4_1.png" alt="Test 4 rendered at sample rate 1">
-        <figcaption>Sample rate 1</figcaption>
-      </figure>
-      <figure>
-        <img src="images/test4_4.png" alt="Test 4 rendered at sample rate 4">
-        <figcaption>Sample rate 4</figcaption>
-      </figure>
-      <figure>
-        <img src="images/test4_9.png" alt="Test 4 rendered at sample rate 9">
-        <figcaption>Sample rate 9</figcaption>
-      </figure>
-      <figure>
-        <img src="images/test4_16.png" alt="Test 4 rendered at sample rate 16">
-        <figcaption>Sample rate 16</figcaption>
-      </figure>
-    </div>
+<p>
+  At a sample rate of 1, each pixel is tested at a single point, so the
+  rasterizer's edge test can only answer "fully in" or "fully out" for
+  that pixel. Any edge that isn't perfectly horizontal or vertical ends up
+  rounded to whole pixels, which is what produces the jagged, stair-stepped
+  boundary in the sample-rate-1 image. Raising the sample rate replaces that
+  single point with an n-by-n grid of subsample points per pixel (n = 2 for
+  rate 4, n = 3 for rate 9, n = 4 for rate 16), and each subsample is tested
+  against the triangle independently, so a pixel straddling an edge now ends
+  up with some subsamples inside the triangle and some outside instead of a
+  single all-or-nothing verdict. Averaging those subsamples in
+  <code>resolve_to_framebuffer</code> turns that mix into a color that is
+  proportional to how much of the pixel the triangle actually covers, so
+  edge pixels become a blend of the triangle color and the background
+  rather than one color or the other. This is why the edges visibly soften
+  from rate 1 to rate 4 to rate 9 to rate 16: more subsamples per pixel give
+  a finer-grained estimate of coverage, so the transition between triangle
+  and background is spread over a wider gradient of intermediate colors
+  instead of jumping abruptly at the pixel boundary. The improvement
+  diminishes as the rate keeps climbing because coverage is already being
+  estimated fairly well by rate 9, and the final image is still displayed
+  at the same framebuffer resolution regardless of how many subsamples were
+  averaged to produce each pixel.
+</p>
 
-    <p>
-      As the sample rate increases from 1 to 16, the jagged, stair-stepped
-      edges seen at a sample rate of 1 are progressively smoothed out. By a
-      sample rate of 16, edges blend gradually into the background instead of
-      transitioning abruptly, confirming that supersampling reduces aliasing.
-    </p>
+
 
     <h2>Task 3: Transforms</h2>
 
