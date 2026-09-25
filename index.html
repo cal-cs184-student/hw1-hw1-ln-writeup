@@ -327,19 +327,19 @@
 
     <div class="image-grid">
       <figure>
-        <img src="images/test1_1.png" alt="basic/test3.svg rendered as a black dragon silhouette">
+        <img src="images/task1-test3.png" alt="basic/test3.svg rendered as a black dragon silhouette">
         <figcaption><code>basic/test3.svg</code></figcaption>
       </figure>
       <figure>
-        <img src="images/test1_2.png" alt="basic/test4.svg rendered with four triangles of varying thinness">
+        <img src="images/task1-test4.png" alt="basic/test4.svg rendered with four triangles of varying thinness">
         <figcaption><code>basic/test4.svg</code></figcaption>
       </figure>
       <figure>
-        <img src="images/test1_3.png" alt="basic/test5.svg rendered as a green cube">
+        <img src="images/task1-test5.png" alt="basic/test5.svg rendered as a green cube">
         <figcaption><code>basic/test5.svg</code></figcaption>
       </figure>
       <figure>
-        <img src="images/test1_4.png" alt="basic/test6.svg rendered as blue stars and orange hexagons">
+        <img src="images/task1-test6.png" alt="basic/test6.svg rendered as blue stars and orange hexagons">
         <figcaption><code>basic/test6.svg</code></figcaption>
       </figure>
     </div>
@@ -348,15 +348,15 @@
 
     <div class="image-grid" style="grid-template-columns: 1fr;">
       <figure>
-        <img src="images/pixel-inspector-4.png"
+        <img src="images/task1-test4-pixel-inspector.png"
              alt="test4.svg at default viewing parameters with the pixel inspector magnifying the thin magenta triangle">
         <figcaption><code>basic/test4.svg</code> with the pixel inspector</figcaption>
       </figure>
     </div>
 
     <p>
-      The inspector is centered on the thin magenta triangle along the right
-      side of the scene, which is the most revealing part of this file. Because
+      The inspector is centered on the right side of the scene, where the thin
+      magenta triangle runs alongside the black border of the canvas. Because
       we take a single sample per pixel, every pixel in the magnified view is
       either fully magenta or fully white, with no intermediate shades. The
       sliver is only about one pixel wide, so instead of a continuous line it
@@ -519,14 +519,369 @@
 
     <h2>Task 3: Transforms</h2>
 
+    <h3>Why the Matrices Are 3&times;3</h3>
+
     <p>
-      This section is reserved for the Task 3 description and results.
+      All three transforms act on 2D points, so it is reasonable to ask why
+      they are not 2&times;2. The reason is translation. Scaling and rotation
+      are linear maps and can be written as 2&times;2 matrices, but translation
+      is not linear: it moves the origin, and no 2&times;2 matrix can do that
+      because \(M\mathbf{0} = \mathbf{0}\) for every \(M\).
     </p>
+
+    <p>
+      Homogeneous coordinates get around this by embedding the plane in 3D at
+      \(w = 1\), writing the point \((x, y)\) as \((x, y, 1)\). A translation
+      then becomes a shear along the third coordinate, which <em>is</em> linear
+      in 3D and so can be written as a matrix. The payoff is uniformity: once
+      all three transforms are 3&times;3 matrices, composing them is just
+      matrix multiplication, which is what lets the SVG hierarchy nest
+      transforms inside one another. The overloaded <code>*</code> operator
+      does the embedding and then divides by the resulting \(w\):
+    </p>
+
+    <div class="math-block">
+      \[
+      (x, y) \;\longmapsto\; (x, y, 1)
+      \;\xrightarrow{\;M\;}\;
+      (x', y', w')
+      \;\longmapsto\;
+      \left( \frac{x'}{w'},\; \frac{y'}{w'} \right).
+      \]
+    </div>
+
+    <p>
+      For the three transforms here the bottom row is always
+      \((0, 0, 1)\), so \(w' = 1\) and the division does nothing. It matters
+      for projective transforms, which these are not.
+    </p>
+
+    <h3>The Three Matrices</h3>
+
+    <p>
+      <strong>Translation</strong> puts the offsets in the third column, where
+      they get multiplied by the \(1\) in the homogeneous coordinate and added
+      to \(x\) and \(y\):
+    </p>
+
+    <div class="math-block">
+      \[
+      T(d_x, d_y) =
+      \begin{pmatrix} 1 & 0 & d_x \\ 0 & 1 & d_y \\ 0 & 0 & 1 \end{pmatrix},
+      \qquad
+      T \begin{pmatrix} x \\ y \\ 1 \end{pmatrix}
+      = \begin{pmatrix} x + d_x \\ y + d_y \\ 1 \end{pmatrix}.
+      \]
+    </div>
+
+    <p>
+      <strong>Scaling</strong> is the diagonal matrix that multiplies each axis
+      independently. Note that it scales about the origin of the current
+      coordinate system, not about the center of whatever is being drawn:
+    </p>
+
+    <div class="math-block">
+      \[
+      S(s_x, s_y) =
+      \begin{pmatrix} s_x & 0 & 0 \\ 0 & s_y & 0 \\ 0 & 0 & 1 \end{pmatrix},
+      \qquad
+      S \begin{pmatrix} x \\ y \\ 1 \end{pmatrix}
+      = \begin{pmatrix} s_x x \\ s_y y \\ 1 \end{pmatrix}.
+      \]
+    </div>
+
+    <p>
+      <strong>Rotation</strong> takes its argument in degrees, so we first
+      convert to radians with \(\theta = \mathtt{deg} \cdot \pi / 180\), then
+      build the standard rotation block in the upper-left 2&times;2:
+    </p>
+
+    <div class="math-block">
+      \[
+      R(\theta) =
+      \begin{pmatrix}
+        \cos\theta & -\sin\theta & 0 \\
+        \sin\theta & \cos\theta & 0 \\
+        0 & 0 & 1
+      \end{pmatrix},
+      \qquad
+      R \begin{pmatrix} x \\ y \\ 1 \end{pmatrix}
+      = \begin{pmatrix}
+          x\cos\theta - y\sin\theta \\
+          x\sin\theta + y\cos\theta \\
+          1
+        \end{pmatrix}.
+      \]
+    </div>
+
+    <p class="note">
+      This rotation is counter-clockwise in a coordinate system whose \(y\)
+      axis points <em>up</em>, but SVG's \(y\) axis points <em>down</em>. A
+      positive angle therefore rotates the \(+x\) axis toward \(+y\), which
+      reads as <strong>clockwise on screen</strong>. This sign is easy to get
+      backwards, and it decides which way each of cubeman's limbs swings: a
+      limb on the \(+x\) side of the body is raised by a <em>negative</em>
+      angle, and one on the \(-x\) side by a positive angle.
+    </p>
+
+    <h3>my_robot.svg</h3>
+
+    <p>
+      We wanted cubeman <strong>waving while mid-stride</strong>, as if he
+      were greeting someone while walking past.     </p>
+    <p>
+      The obstacle is that <code>rotate()</code> always rotates about the
+      origin of the current coordinate system, and in the original file each
+      limb is a <code>translate()</code> straight to the middle of the limb.
+      Rotating there would spin the limb about its own center rather than
+      swinging it from the body. What we needed was a rotation about the
+      shoulder or the hip, which is the standard three-step idiom: translate
+      the pivot to the origin, rotate, then translate back.
+    </p>
+
+    <pre style="overflow-x: auto; background: #f2f2f2; padding: 12px 16px; border-radius: 4px;">&lt;g transform="translate(50 -40)"&gt;       &lt;!-- move the origin to the shoulder --&gt;
+  &lt;g transform="rotate(-60)"&gt;           &lt;!-- rotate about it --&gt;
+    &lt;g transform="translate(-50 40)"&gt;   &lt;!-- undo the move --&gt;
+      &lt;g transform="translate(90 -40)"&gt; &lt;!-- the original arm, untouched --&gt;
+        ...</pre>
+
+    <p>
+      Because the wrappers put the limb back where it started before the
+      original group runs, each of cubeman's arms and legs is pasted in
+      verbatim from <code>robot.svg</code>. The only difference between the
+      two files is the wrappers themselves.
+    </p>
+
+    <p>
+      This is also where the <strong>hierarchical</strong> part of the
+      transform stack does the work. The single <code>rotate(-60)</code> at
+      the shoulder applies to everything nested below it, so the forearm
+      swings along with the upper arm and stays attached to it without our
+      having to compute its new position. The four rotations that make up the
+      whole pose are:
+    </p>
+
+    <div class="math-block">
+      \[
+      \begin{aligned}
+        \text{right arm (waving)} &: \; -60^\circ \text{ about the shoulder}, \\
+        \text{left arm (lowered)} &: \; -50^\circ \text{ about the shoulder}, \\
+        \text{left leg (trailing)} &: \; +18^\circ \text{ about the hip}, \\
+        \text{right leg (forward)} &: \; -15^\circ \text{ about the hip}.
+      \end{aligned}
+      \]
+    </div>
+
+    <p>
+      The legs get much smaller angles than the arms on purpose. A stride
+      reads as a stride at fifteen or twenty degrees, and pushing it further
+      made cubeman look like he was doing the splits rather than walking.
+    </p>
+
+    <p>
+      Both files are shown below. The original on the left confirms that the
+      three matrices are correct, since <code>robot.svg</code> renders as the
+      reference image does. The posed version on the right uses the identical
+      blocks and colors, differing only in the transform wrappers.
+    </p>
+
+    <div class="image-grid">
+      <figure>
+        <img src="images/robot.png"
+             alt="robot.svg rendered: cubeman standing with arms straight out to the sides">
+        <figcaption><code>robot.svg</code>, the original</figcaption>
+      </figure>
+      <figure>
+        <img src="images/my-robot.png"
+             alt="my_robot.svg rendered: cubeman waving with one arm raised and legs in a stride">
+        <figcaption><code>my_robot.svg</code>, waving mid-stride</figcaption>
+      </figure>
+    </div>
+
 
     <h2>Task 4: Barycentric Coordinates</h2>
 
+    <h3>What Barycentric Coordinates Are</h3>
+
     <p>
-      This section is reserved for the Task 4 description and results.
+      Up to this point a triangle has been described by where its corners sit
+      on the screen, and a point has been described by its own \((x, y)\).
+      Barycentric coordinates describe a point a different way: not by its
+      absolute position, but by <em>how much of each vertex it is</em>. Any
+      point \(P\) in the plane of a triangle can be written as a weighted
+      combination of the three vertices,
+    </p>
+
+    <div class="math-block">
+      \[
+      P = \alpha v_0 + \beta v_1 + \gamma v_2,
+      \qquad
+      \alpha + \beta + \gamma = 1,
+      \]
+    </div>
+
+    <p>
+      and for a given triangle that triple \((\alpha, \beta, \gamma)\) is
+      unique. The name comes from <em>barycenter</em>, meaning center of mass:
+      if you place masses \(\alpha\), \(\beta\), and \(\gamma\) at the three
+      corners, then \(P\) is exactly the point where the triangle would
+      balance. Weighting a corner more heavily drags the balance point toward
+      it.
+    </p>
+
+    <p>
+      That picture explains the behavior that makes these coordinates useful:
+    </p>
+
+    <ul>
+      <li>
+        At \(v_0\) the coordinates are \((1, 0, 0)\), and likewise
+        \((0,1,0)\) at \(v_1\) and \((0,0,1)\) at \(v_2\). All the mass sits on
+        one corner.
+      </li>
+      <li>
+        On the edge opposite \(v_0\), the weight \(\alpha\) is exactly zero,
+        and the other two vary linearly along that edge.
+      </li>
+      <li>
+        \(P\) is inside the triangle precisely when all three weights are
+        non-negative. A negative weight means \(P\) is on the far side of the
+        edge opposite that vertex.
+      </li>
+      <li>
+        The centroid is \((\tfrac13, \tfrac13, \tfrac13)\), the balance point
+        of three equal masses.
+      </li>
+    </ul>
+
+    <h3>Computing Them as Area Ratios</h3>
+
+    <p>
+      The way we actually compute the weights is with areas. Connecting \(P\)
+      to all three corners cuts the triangle into three smaller ones, and each
+      weight is the area of the sub-triangle <em>opposite</em> its vertex
+      divided by the area of the whole:
+    </p>
+
+    <div class="math-block">
+      \[
+      \alpha = \frac{\mathrm{Area}(P, v_1, v_2)}{\mathrm{Area}(v_0, v_1, v_2)},
+      \quad
+      \beta  = \frac{\mathrm{Area}(v_0, P, v_2)}{\mathrm{Area}(v_0, v_1, v_2)},
+      \quad
+      \gamma = \frac{\mathrm{Area}(v_0, v_1, P)}{\mathrm{Area}(v_0, v_1, v_2)}.
+      \]
+    </div>
+
+    <p>
+      Written this way the constraint \(\alpha + \beta + \gamma = 1\) needs no
+      proof: the three sub-triangles tile the original exactly, so their areas
+      have to add back up to it. It also makes the vertex behavior obvious. As
+      \(P\) approaches \(v_0\), the sub-triangle opposite \(v_0\) grows to fill
+      the whole triangle while the other two collapse to nothing, so
+      \(\alpha \to 1\).
+    </p>
+
+    <p>
+      We compute each area with the signed-area formula
+    </p>
+
+    <div class="math-block">
+      \[
+      \mathrm{Area}(A, B, C) =
+      \tfrac12 \big[ (B_x - A_x)(C_y - A_y) - (C_x - A_x)(B_y - A_y) \big],
+      \]
+    </div>
+
+    <p>
+      which is the same 2D cross product that Task 1 used for coverage. In
+      fact the edge function from Task 1 is exactly twice this quantity,
+      \(E_{A \to B}(P) = 2\,\mathrm{Area}(A, B, P)\), so the two tasks are
+      using one expression for two purposes: its <em>sign</em> decides which
+      side of an edge a sample is on, and its <em>magnitude</em> gives the
+      interpolation weight.
+    </p>
+
+    <p>
+      The areas are <strong>signed</strong>, which is what makes this work for
+      either winding order. A clockwise triangle produces a negative
+      denominator, but it also flips the sign of every numerator, so the
+      negatives cancel in the ratio and the weights come out correct without
+      any special case. The one thing that has to be guarded is a denominator
+      of zero, which happens when the three vertices are collinear. Such a
+      triangle has no interior to shade, so we return early rather than divide
+      by zero.
+    </p>
+
+    <h3>Interpolating Color</h3>
+
+    <p>
+      Once the weights are known, interpolating the vertex colors is the same
+      weighted average applied to color instead of position:
+    </p>
+
+    <div class="math-block">
+      \[
+      C(P) = \alpha\, c_0 + \beta\, c_1 + \gamma\, c_2.
+      \]
+    </div>
+
+    <p>
+      Because the weights sum to one, this is a true average rather than an
+      arbitrary sum, which means the result always stays within the range of
+      the three vertex colors. Blending three valid colors can never produce an
+      out-of-range one. The same weights work for any per-vertex attribute, not
+      just color, which is what Task 5 relies on when it interpolates texture
+      coordinates instead.
+    </p>
+
+    <h3>Implementation Notes</h3>
+
+    <p>
+      <code>rasterize_interpolated_color_triangle</code> reuses the structure
+      from Tasks 1 and 2 unchanged: the same clamped bounding box, the same
+      supersampling grid, and the same three edge functions to decide coverage.
+      Coverage is still determined by the edge tests, not by the signs of the
+      barycentric weights. The weights are computed only for samples that
+      already passed, and are used solely to pick the color.
+    </p>
+
+    <p>
+      The one value hoisted out of the loop is the denominator, since
+      \(\mathrm{Area}(v_0, v_1, v_2)\) depends only on the triangle and not on
+      the sample. The three numerators have to be recomputed per sample because
+      each depends on \(P\).
+    </p>
+
+    <p class="note">
+      The weights are evaluated at each <em>sample</em> position rather than
+      once per pixel, so barycentric interpolation composes with the
+      supersampling from Task 2 for free. At a sample rate above one, a pixel
+      along a triangle edge averages several independently interpolated colors,
+      which antialiases the silhouette and the color gradient together.
+    </p>
+
+    <h3>Results</h3>
+
+    <div class="image-grid" style="grid-template-columns: 1fr;">
+      <figure>
+        <img src="images/Task4-test7.png"
+             alt="basic/test7.svg rendered as a smoothly blended color wheel">
+        <figcaption><code>basic/test7.svg</code> at sample rate 1</figcaption>
+      </figure>
+    </div>
+
+    <p>
+      The color wheel is built from many thin triangles that all share a vertex
+      at the center. Each one has a black center vertex and two saturated outer
+      vertices of slightly different hue. Barycentric interpolation is what
+      turns that sparse description into a continuous image: the darkening
+      toward the middle comes from \(\alpha\) rising as samples approach the
+      shared black vertex, and the hue sweep around the rim comes from the two
+      outer weights trading off along each triangle's outer edge. Neighboring
+      triangles agree on their shared edge because the weight of the
+      non-shared vertex falls to exactly zero there, so no seams appear
+      between them.
     </p>
 
     <h2>Task 5: Pixel Sampling for Texture Mapping</h2>
@@ -662,9 +1017,444 @@
 
     <h2>Task 6: Level Sampling with Mipmaps</h2>
 
+    <h3>What Level Sampling Is</h3>
+
     <p>
-      This section is reserved for the Task 6 description and results.
+      Tasks 5 and 6 solve opposite halves of the same problem. Pixel sampling
+      deals with <em>magnification</em>, where one texel covers many screen
+      pixels and the question is how to smooth between texels. Level sampling
+      deals with <em>minification</em>, where the situation is reversed: a
+      textured triangle is small or far away, so a single screen pixel covers a
+      large patch of the texture.
     </p>
+
+    <p>
+      Minification is the harder case. If a pixel's footprint spans a hundred
+      texels, then reading one of them with <code>sample_nearest</code> throws
+      away the other ninety-nine, and the one that happens to get picked jumps
+      erratically as the camera moves. Bilinear sampling barely helps, because
+      averaging four adjacent texels out of a hundred is still not
+      representative of the patch. The result is aliasing: moire patterns in
+      regular textures, and shimmering noise as the view changes.
+    </p>
+
+    <p>
+      What we actually want is the <em>average</em> of every texel in the
+      footprint, but computing that per sample would mean summing hundreds of
+      texels. A <strong>mipmap</strong> makes it cheap by doing the averaging
+      ahead of time. The texture is stored as a pyramid of prefiltered copies,
+      each level half the width and height of the one before, so level 0 is the
+      original, level 1 averages every 2x2 block, level 2 every 4x4, and so on.
+      One texel at level \(d\) already represents the average of a
+      \(2^d \times 2^d\) region of the original.
+    </p>
+
+    <p>
+      Level sampling is then the job of picking the level whose texels are about
+      the same size as the pixel footprint, so that a single lookup returns a
+      properly averaged value. The expensive filtering moves from render time to
+      a one-time preprocessing step.
+    </p>
+
+    <h3>Computing the Mip Level</h3>
+
+    <p>
+      Choosing a level requires knowing how fast the texture coordinates change
+      per screen pixel. We measure this with finite differences. In
+      <code>rasterize_textured_triangle</code>, alongside the barycentric
+      interpolation that gives the sample's own coordinate, we run the same
+      interpolation at one pixel step in each direction:
+    </p>
+
+    <div class="math-block">
+      \[
+      \mathtt{p\_uv} = \mathrm{uv}(x, y), \qquad
+      \mathtt{p\_dx\_uv} = \mathrm{uv}(x{+}1, y), \qquad
+      \mathtt{p\_dy\_uv} = \mathrm{uv}(x, y{+}1).
+      \]
+    </div>
+
+    <p>
+      <code>get_level</code> differences these to get the two vectors describing
+      how far the texture coordinate moves for a one-pixel step across the
+      screen. Those differences are in \(uv\) space, which runs from 0 to 1
+      regardless of resolution, so they are scaled by the width and height of
+      the full-resolution texture to convert them into texel units:
+    </p>
+
+    <div class="math-block">
+      \[
+      \frac{\partial \mathbf{uv}}{\partial x} =
+      (\mathtt{p\_dx\_uv} - \mathtt{p\_uv}) \cdot (W, H),
+      \qquad
+      \frac{\partial \mathbf{uv}}{\partial y} =
+      (\mathtt{p\_dy\_uv} - \mathtt{p\_uv}) \cdot (W, H).
+      \]
+    </div>
+
+    <p>
+      Together these two vectors span the pixel's footprint in the texture. We
+      take the length of the longer one and then the base-2 logarithm:
+    </p>
+
+    <div class="math-block">
+      \[
+      L = \max\left(
+        \left\| \tfrac{\partial \mathbf{uv}}{\partial x} \right\|,\;
+        \left\| \tfrac{\partial \mathbf{uv}}{\partial y} \right\|
+      \right),
+      \qquad
+      D = \log_2 L.
+      \]
+    </div>
+
+    <p>
+      The logarithm is exactly right because the pyramid halves resolution at
+      every step, so texels at level \(d\) are \(2^d\) times larger than at
+      level 0. Setting \(2^D = L\) makes one texel at level \(D\) match the
+      footprint. The values line up as expected: a footprint of one texel gives
+      \(D = 0\) and uses the full-resolution image, a footprint of four texels
+      gives \(D = 2\), and so on. \(D\) is clamped to
+      \([0, \texttt{max_level}]\) so that a magnified surface cannot ask for a
+      negative level and a tiny one cannot run off the end of the pyramid.
+    </p>
+
+    <h3>The Three Level Methods</h3>
+
+    <p>
+      <code>Texture::sample</code> dispatches on <code>lsm</code>, with a small
+      helper that performs the actual lookup at a given level using whichever
+      pixel sampling method is currently selected. Keeping that in one place is
+      what makes the two settings fully independent, so all six combinations
+      work without any special casing.
+    </p>
+
+    <ul>
+      <li>
+        <strong>L_ZERO</strong> ignores the footprint entirely and always reads
+        level 0, which is the Task 5 behavior.
+      </li>
+      <li>
+        <strong>L_NEAREST</strong> rounds \(D\) to the closest integer level and
+        does one lookup there.
+      </li>
+      <li>
+        <strong>L_LINEAR</strong> keeps \(D\) continuous. It samples both
+        neighboring levels, \(\lfloor D \rfloor\) and
+        \(\lfloor D \rfloor + 1\), and blends them by the fractional part
+        \(t = D - \lfloor D \rfloor\). This removes the visible seams that
+        L_NEAREST can leave where the chosen level changes from one region to
+        the next, since the transition becomes gradual instead of abrupt.
+      </li>
+    </ul>
+
+
+    <h3>Tradeoffs: Speed, Memory, and Antialiasing Power</h3>
+
+    <p>
+      The three techniques are complementary rather than competing, because each
+      attacks a different source of aliasing.
+    </p>
+
+    <p>
+      <strong>Samples per pixel (supersampling)</strong> is the most expensive
+      on both axes. Cost scales linearly with the rate, so 16 samples per pixel
+      means 16 times the coverage tests and 16 times the texture lookups. It is
+      also the only one of the three with a real memory cost at render time,
+      since the sample buffer holds
+      <code>width * height * sample_rate</code> colors, so 16 samples per pixel
+      needs 16 times the framebuffer. In exchange it is the most general: it is
+      the only technique here that antialiases <em>geometry</em>, meaning
+      triangle silhouettes and thin slivers like the ones in Task 1. What it is
+      weak at is exactly texture minification, because raising the rate from 1
+      to 16 still only captures 16 of the hundreds of texels in a large
+      footprint.
+    </p>
+
+    <p>
+      <strong>Pixel sampling</strong> is the cheapest of the three. Bilinear
+      costs four texel reads and a few interpolations instead of one, a small
+      constant factor on the lookup alone, and it needs no extra memory
+      whatsoever since it reads the same texture. Its antialiasing power is
+      narrow: it produces smooth gradients under magnification instead of blocky
+      texel edges, but under heavy minification it does almost nothing, for the
+      reason given above.
+    </p>
+
+    <p>
+      <strong>Level sampling</strong> has the best ratio of the three for
+      minification. <code>L_NEAREST</code> costs one lookup, the same as
+      <code>L_ZERO</code>, and in practice often runs <em>faster</em> than
+      sampling level 0, because the smaller levels are far friendlier to the
+      cache: a distant surface reads from a tiny image that fits in cache
+      instead of scattering reads across a large one.
+      <code>L_LINEAR</code> doubles the lookups. The memory cost is a one-time
+      preprocessing expense of storing the pyramid, which converges to only one
+      third extra:
+    </p>
+
+    <div class="math-block">
+      \[
+      1 + \tfrac14 + \tfrac1{16} + \tfrac1{64} + \cdots = \tfrac43.
+      \]
+    </div>
+
+    <p>
+      For that fixed cost it handles an arbitrarily large footprint, because the
+      averaging was precomputed rather than done per sample. Its weakness is
+      <em>anisotropic</em> footprints. When a surface is viewed at a steep angle
+      the footprint is long and thin, but taking the maximum of the two axis
+      lengths forces a level chosen by the longer one, which over-blurs along
+      the shorter one. Fixing that properly is what anisotropic filtering does.
+    </p>
+
+    <p>
+      In short: supersampling for geometry, pixel sampling for magnification,
+      and level sampling for minification. Using all three together costs the
+      most but covers every case.
+    </p>
+
+    <h3>Comparison of Sampling Methods</h3>
+
+    <p>
+      Level sampling and pixel sampling are set independently, so every
+      combination of the three level methods and the two pixel methods is
+      valid. Each set below shows all six, with the level method varying down
+      the rows and the pixel method across the columns. Within a set, every
+      screenshot is taken from the same camera position so that the only
+      difference is the sampling method.
+    </p>
+
+    <p>
+      The captions below use the names the renderer itself reports in its
+      status bar, which map onto the enumeration values used earlier as
+      follows. Note that "bilinear" appears in both columns and means something
+      different in each: blending two mip <em>levels</em> on the left, and
+      blending four <em>texels</em> within one level on the right.
+    </p>
+
+    <ul>
+      <li><strong>Level 0</strong> is <code>L_ZERO</code></li>
+      <li><strong>Level nearest</strong> is <code>L_NEAREST</code></li>
+      <li><strong>Level bilinear</strong> is <code>L_LINEAR</code></li>
+      <li><strong>Nearest pixel</strong> is <code>P_NEAREST</code></li>
+      <li><strong>Bilinear pixel</strong> is <code>P_LINEAR</code></li>
+    </ul>
+
+    <p class="note">
+      The four combinations the task asks for are the first two rows of the
+      first set: level 0 and level nearest, each crossed with nearest pixel and
+      bilinear pixel. The third row adds level bilinear, and the pairing of
+      level bilinear with bilinear pixel is trilinear filtering. The remaining
+      sets apply the same grid to the provided test files.
+    </p>
+
+    <h4>Our Own Texture</h4>
+
+    <p>
+      The texture we chose is the source image below, shown here at full
+      resolution rather than as a render. It is a four-by-four atlas of sixteen
+      unrelated material patches, so a single image contains both hard,
+      high-contrast boundaries at the tile seams and fine internal detail such
+      as the crack network, the woven fabric, and the line art. Those are the
+      features that alias most visibly when the texture is minified, which is
+      what makes the differences between the sampling methods easy to see.
+    </p>
+
+    <div class="image-grid" style="grid-template-columns: 1fr;">
+      <figure>
+        <img src="images/our-png.png"
+             alt="The source texture: a four-by-four atlas of sixteen different material patches">
+        <figcaption>The source texture, at full resolution</figcaption>
+      </figure>
+    </div>
+
+    <p>
+      All six renders below are taken from the same zoomed-out camera position,
+      where the whole atlas is minified into a small part of the screen and the
+      pixel inspector is parked over the seam between the yellow, blue, red, and
+      woven tiles. Reading down the rows, the image gets progressively smoother
+      and the speckled noise in the inspector settles down. <code>L_ZERO</code>
+      with <code>P_NEAREST</code> is the sharpest and the noisiest, since each
+      pixel takes one arbitrary texel out of a large footprint.
+      <code>L_NEAREST</code> calms this noticeably by reading from a prefiltered
+      level instead, and <code>L_LINEAR</code> with <code>P_LINEAR</code> is the
+      smoothest of the six. The tradeoff runs in the other direction as well:
+      the smoother combinations lose some of the fine detail that the level 0
+      renders preserve, which is the over-blurring described above.
+    </p>
+
+    <div class="image-grid">
+      <figure>
+        <img src="images/our-png-l0-pn.png" alt="Our Own Texture rendered with Level 0, nearest pixel">
+        <figcaption>Level 0, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/our-png-l0-pb.png" alt="Our Own Texture rendered with Level 0, bilinear pixel">
+        <figcaption>Level 0, bilinear pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/our-png-ln-pn.png" alt="Our Own Texture rendered with Level nearest, nearest pixel">
+        <figcaption>Level nearest, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/our-png-ln-pb.png" alt="Our Own Texture rendered with Level nearest, bilinear pixel">
+        <figcaption>Level nearest, bilinear pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/our-png-lb-pn.png" alt="Our Own Texture rendered with Level bilinear, nearest pixel">
+        <figcaption>Level bilinear, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/our-png-lb-pb.png" alt="Our Own Texture rendered with Level bilinear, bilinear pixel">
+        <figcaption>Level bilinear, bilinear pixel</figcaption>
+      </figure>
+    </div>
+
+    <h4><code>svg/texmap/test1.svg</code></h4>
+
+    <div class="image-grid">
+      <figure>
+        <img src="images/1-l0-pn.png" alt="svg/texmap/test1.svg rendered with Level 0, nearest pixel">
+        <figcaption>Level 0, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/1-l0-pb.png" alt="svg/texmap/test1.svg rendered with Level 0, bilinear pixel">
+        <figcaption>Level 0, bilinear pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/1-ln-pn.png" alt="svg/texmap/test1.svg rendered with Level nearest, nearest pixel">
+        <figcaption>Level nearest, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/1-ln-pb.png" alt="svg/texmap/test1.svg rendered with Level nearest, bilinear pixel">
+        <figcaption>Level nearest, bilinear pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/1-lb-pn.png" alt="svg/texmap/test1.svg rendered with Level bilinear, nearest pixel">
+        <figcaption>Level bilinear, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/1-lb-pb.png" alt="svg/texmap/test1.svg rendered with Level bilinear, bilinear pixel">
+        <figcaption>Level bilinear, bilinear pixel</figcaption>
+      </figure>
+    </div>
+
+    <h4><code>svg/texmap/test2.svg</code></h4>
+
+    <div class="image-grid">
+      <figure>
+        <img src="images/2-l0-pn.png" alt="svg/texmap/test2.svg rendered with Level 0, nearest pixel">
+        <figcaption>Level 0, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/2-l0-pb.png" alt="svg/texmap/test2.svg rendered with Level 0, bilinear pixel">
+        <figcaption>Level 0, bilinear pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/2-ln-pn.png" alt="svg/texmap/test2.svg rendered with Level nearest, nearest pixel">
+        <figcaption>Level nearest, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/2-ln-pb.png" alt="svg/texmap/test2.svg rendered with Level nearest, bilinear pixel">
+        <figcaption>Level nearest, bilinear pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/2-lb-pn.png" alt="svg/texmap/test2.svg rendered with Level bilinear, nearest pixel">
+        <figcaption>Level bilinear, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/2-lb-pb.png" alt="svg/texmap/test2.svg rendered with Level bilinear, bilinear pixel">
+        <figcaption>Level bilinear, bilinear pixel</figcaption>
+      </figure>
+    </div>
+
+    <h4><code>svg/texmap/test4.svg</code></h4>
+
+    <div class="image-grid">
+      <figure>
+        <img src="images/4-l0-pn.png" alt="svg/texmap/test4.svg rendered with Level 0, nearest pixel">
+        <figcaption>Level 0, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/4-l0-pb.png" alt="svg/texmap/test4.svg rendered with Level 0, bilinear pixel">
+        <figcaption>Level 0, bilinear pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/4-ln-pn.png" alt="svg/texmap/test4.svg rendered with Level nearest, nearest pixel">
+        <figcaption>Level nearest, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/4-ln-pb.png" alt="svg/texmap/test4.svg rendered with Level nearest, bilinear pixel">
+        <figcaption>Level nearest, bilinear pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/4-lb-pn.png" alt="svg/texmap/test4.svg rendered with Level bilinear, nearest pixel">
+        <figcaption>Level bilinear, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/4-lb-pb.png" alt="svg/texmap/test4.svg rendered with Level bilinear, bilinear pixel">
+        <figcaption>Level bilinear, bilinear pixel</figcaption>
+      </figure>
+    </div>
+
+    <h4><code>svg/texmap/test5.svg</code></h4>
+
+    <div class="image-grid">
+      <figure>
+        <img src="images/5-l0-pn.png" alt="svg/texmap/test5.svg rendered with Level 0, nearest pixel">
+        <figcaption>Level 0, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/5-l0-pb.png" alt="svg/texmap/test5.svg rendered with Level 0, bilinear pixel">
+        <figcaption>Level 0, bilinear pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/5-ln-pn.png" alt="svg/texmap/test5.svg rendered with Level nearest, nearest pixel">
+        <figcaption>Level nearest, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/5-ln-pb.png" alt="svg/texmap/test5.svg rendered with Level nearest, bilinear pixel">
+        <figcaption>Level nearest, bilinear pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/5-lb-pn.png" alt="svg/texmap/test5.svg rendered with Level bilinear, nearest pixel">
+        <figcaption>Level bilinear, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/5-lb-pb.png" alt="svg/texmap/test5.svg rendered with Level bilinear, bilinear pixel">
+        <figcaption>Level bilinear, bilinear pixel</figcaption>
+      </figure>
+    </div>
+
+    <h4><code>svg/texmap/test6.svg</code></h4>
+
+    <div class="image-grid">
+      <figure>
+        <img src="images/6-l0-pn.png" alt="svg/texmap/test6.svg rendered with Level 0, nearest pixel">
+        <figcaption>Level 0, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/6-l0-pb.png" alt="svg/texmap/test6.svg rendered with Level 0, bilinear pixel">
+        <figcaption>Level 0, bilinear pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/6-ln-pn.png" alt="svg/texmap/test6.svg rendered with Level nearest, nearest pixel">
+        <figcaption>Level nearest, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/6-ln-pb.png" alt="svg/texmap/test6.svg rendered with Level nearest, bilinear pixel">
+        <figcaption>Level nearest, bilinear pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/6-lb-pn.png" alt="svg/texmap/test6.svg rendered with Level bilinear, nearest pixel">
+        <figcaption>Level bilinear, nearest pixel</figcaption>
+      </figure>
+      <figure>
+        <img src="images/6-lb-pb.png" alt="svg/texmap/test6.svg rendered with Level bilinear, bilinear pixel">
+        <figcaption>Level bilinear, bilinear pixel</figcaption>
+      </figure>
+    </div>
 
     <h2>Task 7: Extra Credit</h2>
 
