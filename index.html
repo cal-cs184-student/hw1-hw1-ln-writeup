@@ -572,6 +572,102 @@
   at the same framebuffer resolution regardless of how many subsamples were
   averaged to produce each pixel.
 </p>
+<h3>Extra Credit: Jittered Sampling (1 pt)</h3>
+
+<p>
+  In addition to the required regular <em>n</em>-by-<em>n</em> supersampling
+  grid, we implemented jittered sampling. Each pixel is still divided into
+  the same <em>n</em>-by-<em>n</em> grid of subcells (so the total sample
+  count per pixel is unchanged), but instead of placing every sample at its
+  subcell's center, we place it at a random offset within the subcell:
+</p>
+
+<div class="math-block">
+  \[
+  (x_s, y_s) =
+  \left(
+    x + \frac{i + \xi_x}{n},
+    y + \frac{j + \xi_y}{n}
+  \right),
+  \qquad \xi_x, \xi_y \sim \mathrm{Uniform}(0,1)
+  \]
+</div>
+
+<p>
+  This is toggled at runtime with the <code>'J'</code> hotkey, alongside the
+  existing sampling controls.
+</p>
+
+<h4>Why Jittering Helps</h4>
+
+<p>
+  Grid supersampling is still a <em>regular</em> sampling pattern &mdash; it
+  just has a higher sampling frequency than one sample per pixel. Any signal
+  with periodic structure at a frequency close to that sampling frequency
+  can still alias, and because both the signal and the sampling grid are
+  regular, the resulting error is also regular: it shows up as a coherent,
+  low-frequency <strong>moir&eacute; pattern</strong> rather than as
+  independent per-pixel error. Jittering breaks this correlation. Each
+  sample lands at a different, unpredictable offset, so the sampling
+  "grid" is no longer periodic. The same aliasing error is still present in
+  each individual sample, but it no longer beats coherently against the
+  signal &mdash; it becomes high-frequency noise instead of a low-frequency
+  pattern. Noise is generally far less objectionable to the eye than a
+  structured pattern, especially at normal viewing distance.
+</p>
+
+<h4>Test Scene</h4>
+
+<p>
+  To make this effect obvious, we built a scene designed specifically to
+  alias under grid sampling: a 400x400 canvas filled with ~700 thin black
+  stripes, tilted 3&deg; from vertical, with a period of 1.6 pixels &mdash;
+  finer than a single pixel of resolution. The tilt is important: an
+  axis-aligned grating at an integer-pixel period mostly just resamples
+  cleanly, while a tilted, sub-pixel-period grating beats strongly against
+  a regular sampling grid.
+</p>
+
+<div class="image-grid">
+  <figure>
+    <img src="images/ec_grid_1.png" alt="Grating, grid sampling, 1 sample per pixel">
+    <figcaption>Grid, 1 sample/pixel</figcaption>
+  </figure>
+  <figure>
+    <img src="images/ec_jitter_1.png" alt="Grating, jittered sampling, 1 sample per pixel">
+    <figcaption>Jittered, 1 sample/pixel</figcaption>
+  </figure>
+  <figure>
+    <img src="images/ec_grid_4.png" alt="Grating, grid sampling, 4 samples per pixel">
+    <figcaption>Grid, 4 samples/pixel</figcaption>
+  </figure>
+  <figure>
+    <img src="images/ec_jitter_4.png" alt="Grating, jittered sampling, 4 samples per pixel">
+    <figcaption>Jittered, 4 samples/pixel</figcaption>
+  </figure>
+  <figure>
+    <img src="images/ec_grid_16.png" alt="Grating, grid sampling, 16 samples per pixel">
+    <figcaption>Grid, 16 samples/pixel</figcaption>
+  </figure>
+  <figure>
+    <img src="images/ec_jitter_16.png" alt="Grating, jittered sampling, 16 samples per pixel">
+    <figcaption>Jittered, 16 samples/pixel</figcaption>
+  </figure>
+</div>
+
+<p>
+  At every sample rate we tested, grid sampling produces a clearly visible
+  diagonal herringbone moir&eacute; pattern across the whole image &mdash;
+  it is still faintly visible even at 16 samples per pixel, because the
+  grating's period is well below what a 4-by-4 grid can resolve. Jittered
+  sampling, even at just 1 sample per pixel, replaces that coherent pattern
+  with fine, unstructured noise that reads as a roughly uniform gray at
+  normal viewing distance &mdash; much closer to the true 50% black/white
+  coverage the grating actually has. This is exactly the case the required
+  grid supersampling handles poorly: a high-frequency, near-regular signal
+  that the sampling grid itself is too coarse to resolve.
+</p>
+
 
 
 
