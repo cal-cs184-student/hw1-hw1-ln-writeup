@@ -1615,12 +1615,81 @@
         <figcaption>Level bilinear, bilinear pixel</figcaption>
       </figure>
     </div>
+<h2>Task 7: Extra Credit &mdash; Art Competition</h2>
 
-    <h2>Task 7: Extra Credit</h2>
+<p>
+  For the art competition, we generated a cartoon sun procedurally,
+  which falls under the <strong>"write a procedural SVG generator that
+  outputs complex shapes"</strong> category. The full generator is
+  included at <code>src/generate_competition_svg.py</code> and writes
+  its output to <code>competition.svg</code> at the repo root.
+</p>
 
-    <p>
-      This section is reserved for the optional extra-credit description.
-    </p>
+<h3>How It Works</h3>
+
+<p>
+  The rasterizer cannot draw curves, so every round shape in the image
+  &mdash; the sun's face, its eyes, its smile &mdash; is approximated
+  with straight edges instead of an actual arc:
+</p>
+
+<ul>
+  <li>
+    <code>ngon(cx, cy, r, n)</code> generates the points of an
+    <em>n</em>-sided regular polygon inscribed in a circle. With a
+    large enough <em>n</em> (24 for the face, 12 for the eyes), this
+    reads as a smooth circle once rasterized.
+  </li>
+  <li>
+    <code>arc_strip(cx, cy, r, a0, a1, n, thickness)</code> samples a
+    circular arc as <em>n</em> straight segments and thickens it into
+    a closed band, which is what draws the smile.
+  </li>
+</ul>
+
+<p>
+  The rays are the procedural centerpiece of the piece. Rather than
+  hand-placing 12 triangles, the script defines a <strong>single</strong>
+  ray polygon pointing straight up out of the sun's center, then repeats
+  it around a full circle with a Python <code>for</code> loop that wraps
+  each copy in <code>&lt;g transform="rotate(angle, cx, cy)"&gt;</code>,
+  incrementing <code>angle</code> by <code>360&deg; / 12</code> each
+  time and alternating between two shades of yellow/orange. The
+  rotation math itself is delegated entirely to the SVG
+  <code>rotate</code> transform rather than computed by hand in Python,
+  which is a direct, minimal use of the matrix-transform machinery this
+  assignment covers.
+</p>
+
+<p class="note">
+  While building this, we ran into a real parsing quirk worth noting:
+  this codebase's SVG parser only strips commas for the
+  <code>matrix(...)</code> transform type. A transform like
+  <code>rotate(30,400,400)</code> silently parses the angle but drops
+  the pivot point (it defaults to the origin), while the
+  space-separated form <code>rotate(30 400 400)</code> parses
+  correctly. The generator emits space-separated arguments for exactly
+  this reason.
+</p>
+
+<h3>Result</h3>
+
+<div class="image-grid">
+  <figure>
+    <img src="images/competition.png" alt="Procedurally generated cartoon sun, 800 by 800 pixels">
+    <figcaption>competition.svg, rendered at 800x800</figcaption>
+  </figure>
+</div>
+
+<p>
+  A faceted circle forms the sun's face, with a darker crescent and a
+  <code>colortri</code>-shaded highlight for a touch of gradient
+  shading rather than a completely flat fill. Two small polygon eyes
+  with white highlight dots, a pair of blush-colored cheeks, and the
+  arc-strip smile complete the face, surrounded by the 12-ray sunburst
+  described above.
+</p>
+
   </main>
 </body>
 </html>
