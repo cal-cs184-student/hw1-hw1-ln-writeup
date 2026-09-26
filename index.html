@@ -1615,7 +1615,7 @@
         <figcaption>Level bilinear, bilinear pixel</figcaption>
       </figure>
     </div>
-<h2>Task 7: Extra Credit &mdash; Art Competition</h2>
+<h2>Task 7: Extra Credit - Art Competition</h2>
 
 <p>
   For the art competition, we generated a cartoon sun procedurally,
@@ -1681,14 +1681,31 @@
   </figure>
 </div>
 
+<h3>How It Works</h3>
+
 <p>
-  A faceted circle forms the sun's face, with a darker crescent and a
-  <code>colortri</code>-shaded highlight for a touch of gradient
-  shading rather than a completely flat fill. Two small polygon eyes
-  with white highlight dots, a pair of blush-colored cheeks, and the
-  arc-strip smile complete the face, surrounded by the 12-ray sunburst
-  described above.
+  The whole image is built by a Python script
+  (<code>src/generate_competition_svg.py</code>) rather than by hand,
+  which is what makes it fit the "procedural SVG generator" category.
+  Since the rasterizer cannot draw curves, every round shape is
+  approximated with straight edges: an <code>ngon(cx, cy, r, n)</code>
+  helper generates an <em>n</em>-sided regular polygon inscribed in a
+  circle for the face and eyes, and an <code>arc_strip(...)</code>
+  helper samples a circular arc as several straight segments and
+  thickens it into a band for the smile.
 </p>
+
+<p>
+  The 12 sunburst rays are the procedural centerpiece: rather than
+  hand-computing 12 rotated triangles, the script defines a single ray
+  polygon pointing straight up from the sun's center, then repeats it
+  in a loop, wrapping each copy in
+  <code>&lt;g transform="rotate(angle, cx, cy)"&gt;</code> with an
+  incrementing angle and alternating color. The rotation math itself is
+  handled entirely by the SVG transform, not computed by hand in
+  Python.
+</p>
+
 
   </main>
 </body>
